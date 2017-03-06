@@ -1,6 +1,7 @@
 package de.origindd.extractor.service.impl;
 
 import com.google.common.collect.Lists;
+import de.origindd.extractor.Mpeg7MarshalException;
 import de.origindd.extractor.dto.ExtractionMetaInformation;
 import de.origindd.extractor.dto.enumeration.RoomType;
 import de.origindd.extractor.service.Constants;
@@ -38,6 +39,7 @@ import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.namespace.QName;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.List;
@@ -67,16 +69,16 @@ public class XMLMapperImpl implements XMLMapper {
         return marshal(rootElement);
     }
 
-    private void assembleDescriptionTypes(Mpeg7 rootElement, ExtractionMetaInformation information){
+    private void assembleDescriptionTypes(Mpeg7 rootElement, ExtractionMetaInformation information) {
         rootElement.getDescription().add(getMediaDescription(information));
     }
 
-    private MediaDescriptionType getMediaDescription(ExtractionMetaInformation information){
+    private MediaDescriptionType getMediaDescription(ExtractionMetaInformation information) {
         MediaDescriptionType descriptionType = new MediaDescriptionType();
         MediaInformationType mediaInformation = getMediaInformation(information);
         MediaProfileType mediaProfileType = new MediaProfileType();
         mediaProfileType.setMediaFormat(getMediaFormat(information));
-        mediaProfileType.getMediaInstance().add( getMediaLocation(information));
+        mediaProfileType.getMediaInstance().add(getMediaLocation(information));
         mediaInformation.getMediaProfile().add(mediaProfileType);
         descriptionType.getMediaInformation().add(mediaInformation);
         return descriptionType;
@@ -138,19 +140,20 @@ public class XMLMapperImpl implements XMLMapper {
         return bitRate;
     }
 
-    private Optional<BigInteger> filteredBitRate(Predicate<BigInteger> filter, Supplier<BigInteger> supplier){
+    private Optional<BigInteger> filteredBitRate(Predicate<BigInteger> filter, Supplier<BigInteger> supplier) {
         return Optional.ofNullable(supplier.get())
                 .filter(filter);
     }
 
     @SuppressWarnings("unused")
-    private List<CompleteDescriptionType> assembleDescriptions(ExtractionMetaInformation information){
-       List<CompleteDescriptionType> descriptions = Lists.newArrayList();
-       //descriptions.add(creationInformationType(information));
+    private List<CompleteDescriptionType> assembleDescriptions(ExtractionMetaInformation information) {
+        List<CompleteDescriptionType> descriptions = Lists.newArrayList();
+        //descriptions.add(creationInformationType(information));
         return null;
     }
+
     @SuppressWarnings("unused")
-    private CreationInformationType creationInformationType(ExtractionMetaInformation information){
+    private CreationInformationType creationInformationType(ExtractionMetaInformation information) {
         CreationInformationType creationInformationType = new CreationInformationType();
         ClassificationType classificationType = new ClassificationType();
         ClassificationType.Genre sessionType = new ClassificationType.Genre();
@@ -180,7 +183,7 @@ public class XMLMapperImpl implements XMLMapper {
     private DescriptionMetadataType setCreatinoLocation(
             DescriptionMetadataType metadata,
             ExtractionMetaInformation information
-    ){
+    ) {
         PlaceType placeType = new PlaceType();
         enrich(placeType, information);
         metadata.setCreationLocation(placeType);
@@ -190,7 +193,7 @@ public class XMLMapperImpl implements XMLMapper {
     private void enrich(
             PlaceType placeType,
             ExtractionMetaInformation information
-    ){
+    ) {
         PlaceType.StructuredInternalCoordinates coordinates = new PlaceType.StructuredInternalCoordinates();
         coordinates.setRoomName(Optional.ofNullable(information.getSensorLocationRoomType()).orElse(RoomType.OTHER).getId());
         coordinates.setRoomNumber(information.getSensorLocationRoomId());
@@ -201,7 +204,7 @@ public class XMLMapperImpl implements XMLMapper {
     private DescriptionMetadataType setPrivateIdentifier(
             DescriptionMetadataType metadata,
             ExtractionMetaInformation information
-    ){
+    ) {
         metadata.setPrivateIdentifier(information.getPrivateIdentifiers());
         return metadata;
     }
@@ -319,25 +322,25 @@ public class XMLMapperImpl implements XMLMapper {
     }
 
     private String marshal(Mpeg7 root) {
+        OutputStream outputStream = new ByteArrayOutputStream();
         try {
-            JAXBContext jaxbContext = JAXBContext.newInstance(Mpeg7.class);
-            Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
+            executeMarshal(root, outputStream);
+            String result = outputStream.toString();
+            outputStream.close();
 
-            jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-
-            JAXBElement<Mpeg7> metadata = new JAXBElement<>(
-                    new QName("MPEG7"), Mpeg7.class, root);
-
-            OutputStream outputStream = new ByteArrayOutputStream();
-
-            jaxbMarshaller.marshal(metadata, outputStream);
-
-            return outputStream.toString();
-
-        } catch (JAXBException e) {
-            e.printStackTrace();
+            return result;
+        } catch (JAXBException | IOException e) {
+            throw Mpeg7MarshalException.with(root, e);
         }
-
-        return null;
     }
+
+    private void executeMarshal(Mpeg7 root, OutputStream outputStream) throws JAXBException {
+        JAXBContext jaxbContext = JAXBContext.newInstance(Mpeg7.class);
+        Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
+        jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        JAXBElement<Mpeg7> metadata = new JAXBElement<>(
+                new QName("MPEG7"), Mpeg7.class, root);
+        jaxbMarshaller.marshal(metadata, outputStream);
+    }
+
 }
