@@ -1,6 +1,6 @@
 # MPEG-7 Metadata Extractor
 
-[![N|Solid](http://www.sensecare.eu/wp-content/uploads/2016/04/logoSC-1.png)]
+![N|Solid](http://www.sensecare.eu/wp-content/uploads/2016/04/logoSC-1.png)
 
 Extracts technical and given metadata and stores them in MPEG-7 compliant XML format. 
 
